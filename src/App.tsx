@@ -35,7 +35,7 @@ export default function App() {
   const getRoleTitle = (role: UserRole): string => {
     switch (role) {
       case 'admin': return 'Администратор';
-      case 'auction-house': return 'Аукционный дом';
+      case 'auction-house': return 'Аукционный д ом';
       case 'participant': return 'Участник';
     }
   };
