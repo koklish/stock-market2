@@ -46,8 +46,18 @@ interface AuctionData {
   coverImage: string;
 }
 
+interface NewAuction {
+  title: string;
+  image: string;
+  date: string;
+  status: 'published';
+  lotsCount: number;
+  commission: number;
+}
+
 interface CreateAuctionProps {
   onBack: () => void;
+  onCreateAuction: (auction: NewAuction) => void;
   auctionHouseData: {
     name: string;
     logo: string;
@@ -58,7 +68,7 @@ interface CreateAuctionProps {
   };
 }
 
-export function CreateAuction({ onBack, auctionHouseData }: CreateAuctionProps) {
+export function CreateAuction({ onBack, onCreateAuction, auctionHouseData }: CreateAuctionProps) {
   const [currentBlock, setCurrentBlock] = useState<1 | 2 | 3 | 4>(1);
   const [auctionData, setAuctionData] = useState<AuctionData>({
     title: '',
@@ -204,7 +214,18 @@ export function CreateAuction({ onBack, auctionHouseData }: CreateAuctionProps) 
   };
 
   const handleOpenAuction = () => {
-    alert('Аукцион успешно открыт на МБ-маркет!\nТеперь участники могут просматривать лоты и делать ставки.');
+    // Создаём новый аукцион
+    const newAuction: NewAuction = {
+      title: auctionData.title,
+      image: auctionData.coverImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400',
+      date: `${auctionData.date} ${auctionData.time}`,
+      status: 'published',
+      lotsCount: lots.length,
+      commission: auctionData.commission
+    };
+
+    onCreateAuction(newAuction);
+    alert('Аукцион успешно создан и опубликован на МБ-маркет!');
     onBack();
   };
 

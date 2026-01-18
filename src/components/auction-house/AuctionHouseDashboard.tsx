@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { 
-  Coins, 
-  LayoutDashboard, 
-  Gavel, 
-  Archive, 
-  FileText, 
-  Building2, 
+import { useState, useEffect } from 'react';
+import {
+  Coins,
+  LayoutDashboard,
+  Gavel,
+  Archive,
+  FileText,
+  Building2,
   CreditCard,
   MessageSquare,
   LogOut,
@@ -25,6 +25,7 @@ import auctionImage1 from 'figma:asset/64bcb5cc669d449b824d80cfe93929ce73d86651.
 import auctionImage2 from 'figma:asset/be75704d05a20d3fa5f3da5edc75293db3f3a622.png';
 import auctionImage3 from 'figma:asset/cbcfeb4b5664568aa11be253c2883d9cfd0d3c56.png';
 import { CreateAuction } from './CreateAuction';
+import { AuctionHouseAuctionDetail } from './AuctionHouseAuctionDetail';
 
 import { Badge } from '../ui/badge';
 
@@ -38,7 +39,7 @@ type AuctionStatus =
   | 'cancelled'
   | 'archived';
 
-interface Auction {
+export interface Auction {
   id: number;
   title: string;
   number: number;
@@ -55,6 +56,7 @@ interface AuctionHouseDashboardProps {
 
 export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) {
   const [activeSection, setActiveSection] = useState<'dashboard' | 'profile' | 'auctions' | 'create-auction'>('dashboard');
+  const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [statusFilter, setStatusFilter] = useState<AuctionStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,8 +75,8 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
     logo: '🏛️'
   };
 
-  // Тестовые аукционы
-  const testAuctions: Auction[] = [
+  // Начальные тестовые аукционы
+  const defaultAuctions: Auction[] = [
     {
       id: 1,
       title: 'Редкие монеты Российской Империи',
@@ -157,6 +159,38 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
     }
   ];
 
+  // Загружаем аукционы из localStorage или используем дефолтные
+  const [auctions, setAuctions] = useState<Auction[]>(() => {
+    const saved = localStorage.getItem('auctions');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return defaultAuctions;
+      }
+    }
+    return defaultAuctions;
+  });
+
+  // Сохраняем в localStorage при изменении
+  useEffect(() => {
+    localStorage.setItem('auctions', JSON.stringify(auctions));
+  }, [auctions]);
+
+  // Функция добавления нового аукциона
+  const handleAddAuction = (newAuction: Omit<Auction, 'id' | 'number'>) => {
+    const maxId = Math.max(...auctions.map(a => a.id), 0);
+    const maxNumber = Math.max(...auctions.map(a => a.number), 0);
+
+    const auction: Auction = {
+      ...newAuction,
+      id: maxId + 1,
+      number: maxNumber + 1
+    };
+
+    setAuctions(prev => [auction, ...prev]);
+  };
+
   const getStatusBadge = (status: AuctionStatus) => {
     const statusMap: Record<AuctionStatus, { label: string; variant: "neutral" | "warning" | "info" | "planned" | "success" | "success-dark" | "danger" | "muted" }> = {
       'draft': { label: 'Черновик', variant: 'neutral' },
@@ -173,52 +207,57 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
   };
 
   const getStatusAction = (auction: Auction) => {
+    const handleViewDetails = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSelectedAuctionId(auction.id);
+    };
+
     switch (auction.status) {
       case 'draft':
         return (
-          <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
             Завершить настройку
           </button>
         );
       case 'awaiting-payment':
         return (
-          <button className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
             Оплатить размещение
           </button>
         );
       case 'published':
         return (
-          <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-            Открыть на МБ-маркет
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+            Просмотр аукциона
           </button>
         );
       case 'planned':
         return (
-          <button className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
             Начать торги
           </button>
         );
       case 'active':
         return (
-          <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
             Перейти к торгам
           </button>
         );
       case 'completed':
         return (
-          <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
             Посмотреть результаты
           </button>
         );
       case 'cancelled':
         return (
-          <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
             Подробности
           </button>
         );
       case 'archived':
         return (
-          <button className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors">
+          <button onClick={handleViewDetails} className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors">
             Открыть архив
           </button>
         );
@@ -226,6 +265,36 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
         return null;
     }
   };
+
+  // Если выбран конкретный аукцион, показываем детальный просмотр
+  if (selectedAuctionId !== null) {
+    const selectedAuction = auctions.find(a => a.id === selectedAuctionId);
+    return (
+      <AuctionHouseAuctionDetail
+        auctionId={selectedAuctionId}
+        auctionData={selectedAuction ? {
+          title: selectedAuction.title,
+          date: selectedAuction.date,
+          lotsCount: selectedAuction.lotsCount,
+          commission: selectedAuction.commission
+        } : undefined}
+        onBack={() => setSelectedAuctionId(null)}
+        onNavigateToDashboard={() => {
+          setSelectedAuctionId(null);
+          setActiveSection('dashboard');
+        }}
+        onNavigateToAuctions={() => {
+          setSelectedAuctionId(null);
+          setActiveSection('auctions');
+        }}
+        onNavigateToProfile={() => {
+          setSelectedAuctionId(null);
+          setActiveSection('profile');
+        }}
+        onLogout={onLogout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-yellow-50">
@@ -396,7 +465,7 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
               {/* Отображение в виде плиток */}
               {viewMode === 'grid' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {testAuctions
+                  {auctions
                     .filter((auction) => {
                       if (statusFilter === 'all') return true;
                       return auction.status === statusFilter;
@@ -405,7 +474,8 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
                     .map((auction) => (
                       <div
                         key={auction.id}
-                        className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                        onClick={() => setSelectedAuctionId(auction.id)}
+                        className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all cursor-pointer hover:scale-105 duration-300"
                       >
                         {/* Изображение */}
                         <div className="relative h-48 overflow-hidden bg-gray-100">
@@ -451,7 +521,7 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
               {/* Отображение в виде строк */}
               {viewMode === 'list' && (
                 <div className="space-y-3">
-                  {testAuctions
+                  {auctions
                     .filter((auction) => {
                       if (statusFilter === 'all') return true;
                       return auction.status === statusFilter;
@@ -460,7 +530,8 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
                     .map((auction) => (
                       <div
                         key={auction.id}
-                        className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden"
+                        onClick={() => setSelectedAuctionId(auction.id)}
+                        className="bg-white rounded-lg shadow hover:shadow-lg transition-all overflow-hidden cursor-pointer hover:bg-gray-50"
                       >
                         <div className="flex items-center gap-4 p-4">
                           {/* Миниатюра */}
@@ -689,7 +760,7 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
               {/* Отображение в виде плиток */}
               {viewMode === 'grid' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {testAuctions
+                  {auctions
                     .filter((auction) => {
                       if (statusFilter === 'all') return true;
                       return auction.status === statusFilter;
@@ -698,7 +769,8 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
                     .map((auction) => (
                       <div
                         key={auction.id}
-                        className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                        onClick={() => setSelectedAuctionId(auction.id)}
+                        className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all cursor-pointer hover:scale-105 duration-300"
                       >
                         {/* Изображение */}
                         <div className="relative h-48 overflow-hidden bg-gray-100">
@@ -744,7 +816,7 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
               {/* Отображение в виде строк */}
               {viewMode === 'list' && (
                 <div className="space-y-3">
-                  {testAuctions
+                  {auctions
                     .filter((auction) => {
                       if (statusFilter === 'all') return true;
                       return auction.status === statusFilter;
@@ -753,7 +825,8 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
                     .map((auction) => (
                       <div
                         key={auction.id}
-                        className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden"
+                        onClick={() => setSelectedAuctionId(auction.id)}
+                        className="bg-white rounded-lg shadow hover:shadow-lg transition-all overflow-hidden cursor-pointer hover:bg-gray-50"
                       >
                         <div className="flex items-center gap-4 p-4">
                           {/* Миниатюра */}
@@ -900,6 +973,7 @@ export function AuctionHouseDashboard({ onLogout }: AuctionHouseDashboardProps) 
         {activeSection === 'create-auction' && (
           <CreateAuction
             onBack={() => setActiveSection('dashboard')}
+            onCreateAuction={handleAddAuction}
             auctionHouseData={{
               name: auctionHouseData.name,
               logo: auctionHouseData.logo,

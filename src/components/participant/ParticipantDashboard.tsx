@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Gavel,
   UserCheck,
@@ -31,12 +31,13 @@ type AuctionStatus = 'published' | 'planned' | 'active' | 'completed';
 interface Auction {
   id: number;
   title: string;
-  auctionHouse: string;
+  auctionHouse?: string;
   image: string;
   date: string;
   status: AuctionStatus;
   lotsCount: number;
-  minBidStep: number;
+  minBidStep?: number;
+  commission?: number;
 }
 
 interface ParticipantDashboardProps {
@@ -44,6 +45,7 @@ interface ParticipantDashboardProps {
 }
 
 export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
+  console.log('ParticipantDashboard rendering');
   const [activeSection, setActiveSection] = useState<'auctions' | 'participations' | 'won-lots' | 'documents' | 'profile' | 'notifications'>('auctions');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [statusFilter, setStatusFilter] = useState<AuctionStatus | 'all'>('all');
@@ -67,59 +69,113 @@ export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
     company: 'ООО "АгрТорг"'
   };
 
-  // Тестовые аукционы
-  const testAuctions: Auction[] = [
-    {
-      id: 1,
-      title: 'Редкие монеты Российской Империи',
-      auctionHouse: 'Империал Аукцион',
-      image: 'https://images.unsplash.com/photo-1619735142352-4a6d3e0c5a0c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      date: '2025-12-15 14:00',
-      status: 'active',
-      lotsCount: 156,
-      minBidStep: 500
-    },
-    {
-      id: 2,
-      title: 'Коллекция орденов и медалей СССР',
-      auctionHouse: 'Нумизматический Дом',
-      image: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      date: '2025-12-20 16:00',
-      status: 'published',
-      lotsCount: 89,
-      minBidStep: 1000
-    },
-    {
-      id: 3,
-      title: 'Антикварные украшения XIX века',
-      auctionHouse: 'Империал Аукцион',
-      image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      date: '2025-12-22 15:00',
-      status: 'planned',
-      lotsCount: 67,
-      minBidStep: 2000
-    },
-    {
-      id: 4,
-      title: 'Банкноты и бумажные деньги мира',
-      auctionHouse: 'Нумизматический Дом',
-      image: 'https://images.unsplash.com/photo-1633769573304-90d2d44eef0c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      date: '2025-12-10 18:00',
-      status: 'completed',
-      lotsCount: 203,
-      minBidStep: 300
-    }
-  ];
+  // Функция с тестовыми аукционами по умолчанию
+  const getDefaultAuctions = (): Auction[] => {
+    return [
+      {
+        id: 1,
+        title: 'Редкие монеты Российской Империи',
+        auctionHouse: 'Империал Аукцион',
+        image: 'https://images.unsplash.com/photo-1619735142352-4a6d3e0c5a0c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+        date: '2025-12-15 14:00',
+        status: 'active',
+        lotsCount: 156,
+        minBidStep: 500
+      },
+      {
+        id: 2,
+        title: 'Коллекция орденов и медалей СССР',
+        auctionHouse: 'Нумизматический Дом',
+        image: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+        date: '2025-12-20 16:00',
+        status: 'published',
+        lotsCount: 89,
+        minBidStep: 1000
+      },
+      {
+        id: 3,
+        title: 'Антикварные украшения XIX века',
+        auctionHouse: 'Империал Аукцион',
+        image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+        date: '2025-12-22 15:00',
+        status: 'planned',
+        lotsCount: 67,
+        minBidStep: 2000
+      },
+      {
+        id: 4,
+        title: 'Банкноты и бумажные деньги мира',
+        auctionHouse: 'Нумизматический Дом',
+        image: 'https://images.unsplash.com/photo-1633769573304-90d2d44eef0c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+        date: '2025-12-10 18:00',
+        status: 'completed',
+        lotsCount: 203,
+        minBidStep: 300
+      }
+    ];
+  };
 
-  const getStatusBadge = (status: AuctionStatus) => {
-    const statusMap: Record<AuctionStatus, { label: string; variant: "info" | "planned" | "success" | "success-dark" }> = {
+  // Загружаем аукционы из localStorage
+  const [auctions, setAuctions] = useState<Auction[]>(() => {
+    const saved = localStorage.getItem('auctions');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Преобразуем формат из аукционного дома (с commission) в формат участника (с minBidStep)
+        return parsed.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          auctionHouse: 'Империал Аукцион', // Можно получить из данных аукционного дома если нужно
+          image: a.image,
+          date: a.date,
+          status: a.status,
+          lotsCount: a.lotsCount,
+          minBidStep: a.commission ? Math.round(a.commission * 100) : 500 // Примерное преобразование
+        }));
+      } catch {
+        return getDefaultAuctions();
+      }
+    }
+    return getDefaultAuctions();
+  });
+
+  // Синхронизируем с localStorage при изменении
+  useEffect(() => {
+    // Проверяем localStorage на новые аукционы
+    const stored = localStorage.getItem('auctions');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const converted = parsed.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          auctionHouse: 'Империал Аукцион',
+          image: a.image,
+          date: a.date,
+          status: a.status,
+          lotsCount: a.lotsCount,
+          minBidStep: a.commission ? Math.round(a.commission * 100) : 500
+        }));
+        setAuctions(converted);
+      } catch (e) {
+        console.error('Ошибка при загрузке аукционов:', e);
+      }
+    }
+  }, []); // Загружаем только при монтировании
+
+  const getStatusBadge = (status: any) => {
+    const statusMap: Record<string, { label: string; variant: "info" | "planned" | "success" | "success-dark" | "neutral" | "warning" }> = {
       'published': { label: 'Опубликован', variant: 'info' },
       'planned': { label: 'Запланирован', variant: 'planned' },
       'active': { label: 'Торги', variant: 'success' },
-      'completed': { label: 'Завершён', variant: 'success-dark' }
+      'completed': { label: 'Завершён', variant: 'success-dark' },
+      'draft': { label: 'Черновик', variant: 'neutral' },
+      'awaiting-payment': { label: 'Ожидает оплаты', variant: 'warning' },
+      'cancelled': { label: 'Отменён', variant: 'warning' },
+      'archived': { label: 'В архиве', variant: 'neutral' }
     };
-    const { label, variant } = statusMap[status];
-    return <Badge variant={variant} className="rounded-full px-3">{label}</Badge>;
+    const config = statusMap[status] || { label: 'Неизвестно', variant: 'neutral' as const };
+    return <Badge variant={config.variant} className="rounded-full px-3">{config.label}</Badge>;
   };
 
   // Функция для получения текста и стиля кнопки
@@ -193,7 +249,7 @@ export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
 
   // Показываем форму подачи заявки
   if (showParticipationForm && selectedAuctionId) {
-    const auction = testAuctions.find(a => a.id === selectedAuctionId);
+    const auction = auctions.find(a => a.id === selectedAuctionId);
     if (auction) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-yellow-50">
@@ -614,8 +670,8 @@ export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
         ) : (
           <>
             {activeSection === 'auctions' && (
-          <>
-            <div className="flex items-center justify-between mb-6">
+              <>
+                <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900">Аукционы</h1>
 
               {/* Фильтры */}
@@ -670,7 +726,7 @@ export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
             {/* Отображение в виде строк */}
             {viewMode === 'list' && (
               <div className="space-y-3">
-                {testAuctions
+                {auctions
                   .filter((auction) => {
                     if (statusFilter === 'all') return true;
                     return auction.status === statusFilter;
@@ -771,7 +827,7 @@ export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
             {/* Отображение в виде плиток */}
             {viewMode === 'grid' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {testAuctions
+                {auctions
                   .filter((auction) => {
                     if (statusFilter === 'all') return true;
                     return auction.status === statusFilter;
@@ -841,7 +897,7 @@ export function ParticipantDashboard({ onLogout }: ParticipantDashboardProps) {
 
             {/* Тестовые данные участий */}
             <div className="space-y-4">
-              {testAuctions.slice(0, 2).map((auction) => {
+              {auctions.slice(0, 2).map((auction) => {
                 // Определяем статус лидерства ставки (для примера)
                 const isLeading = auction.id === 1;
                 const hasBid = true;

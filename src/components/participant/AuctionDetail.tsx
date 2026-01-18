@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Calendar, Package, Clock, Building2, FileText, History } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { LotTradePanel } from './LotTradePanel';
+import { LotModal } from './LotModal';
 
 type AuctionStatus = 'published' | 'planned' | 'active' | 'completed';
 
@@ -289,18 +289,15 @@ export function AuctionDetail({ auctionId, onBack, onGoToTrading }: AuctionDetai
           {/* Контент вкладок */}
           <div className="p-6">
             {activeTab === 'lots' && (
-              <div className="flex gap-6">
+              <>
                 {/* Список лотов */}
-                <div className={`space-y-4 ${selectedLotId ? 'flex-1' : 'w-full'}`}>
+                <div className="space-y-4">
                   {lots.map((lot) => (
                     <div
                       key={lot.id}
                       onClick={() => setSelectedLotId(lot.id)}
-                      className={`flex items-center gap-4 p-4 border rounded-lg hover:shadow-md transition-all cursor-pointer ${
-                        selectedLotId === lot.id
-                          ? 'border-amber-500 bg-amber-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                      className="flex items-center gap-4 p-4 border rounded-lg hover:
+                      ow-md transition-all cursor-pointer border-gray-200 hover:border-amber-400"
                     >
                       <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
                         <img
@@ -329,39 +326,35 @@ export function AuctionDetail({ auctionId, onBack, onGoToTrading }: AuctionDetai
                           </div>
                         </div>
                       </div>
-                      {selectedLotId !== lot.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedLotId(lot.id);
-                          }}
-                          className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm"
-                        >
-                          Выбрать
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedLotId(lot.id);
+                        }}
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm"
+                      >
+                        Выбрать
+                      </button>
                     </div>
                   ))}
                 </div>
 
-                {/* Панель выбранного лота */}
+                {/* Модальное окно лота */}
                 {selectedLotId && (() => {
                   const lotData = getLotTradeView(selectedLotId);
                   if (!lotData) return null;
                   return (
-                    <div className="w-[400px] flex-shrink-0">
-                      <LotTradePanel
-                        lot={lotData}
-                        onClose={() => setSelectedLotId(null)}
-                        onBidSubmit={(amount) => {
-                          console.log('Ставка:', amount);
-                          // Здесь будет логика отправки ставки на сервер
-                        }}
-                      />
-                    </div>
+                    <LotModal
+                      lot={lotData}
+                      isOpen={true}
+                      onClose={() => setSelectedLotId(null)}
+                      onBidSubmit={(amount) => {
+                        console.log('Ставка:', amount);
+                      }}
+                    />
                   );
                 })()}
-              </div>
+              </>
             )}
 
             {activeTab === 'conditions' && (
